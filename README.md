@@ -69,7 +69,7 @@ http://127.0.0.1:5000/
 ## Live Link:
 
 ```
-https://tea-price.onrender.com/predict
+https://tea-price.onrender.com
 ```
 
 ## 📊 Key Insights
