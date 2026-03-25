@@ -66,6 +66,12 @@ http://127.0.0.1:5000/
 
 ---
 
+## Live Link:
+
+```
+https://tea-price.onrender.com/predict
+```
+
 ## 📊 Key Insights
 
 * Tea prices are influenced by both macroeconomic and environmental factors.
