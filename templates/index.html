@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Kenyan Tea Market Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+  <!-- Background texture layers -->
+  <div class="bg-layer bg-layer--1"></div>
+  <div class="bg-layer bg-layer--2"></div>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="logo-block">
+        <span class="logo-leaf">🍃</span>
+        <div>
+          <div class="logo-title">Tea Intelligence</div>
+          <div class="logo-sub">Kenya Market Dashboard</div>
+        </div>
+      </div>
+      <div class="header-badge">ML Powered</div>
+    </div>
+  </header>
+
+  <main class="main-wrapper">
+
+    <!-- Hero strip -->
+    <section class="hero-strip">
+      <h1 class="hero-title">Kenyan Tea <em>Price Predictor</em></h1>
+      <p class="hero-desc">Enter current market conditions to receive an AI-driven price forecast, market signal, and risk assessment from the Mombasa auction model.</p>
+    </section>
+
+    <div class="dashboard-grid">
+
+      <!-- ── LEFT: FORM ── -->
+      <aside class="card form-card">
+        <div class="card-header">
+          <span class="card-icon">📊</span>
+          <h2 class="card-title">Market Inputs</h2>
+        </div>
+
+        <form id="predict-form" action="/predict" method="POST" novalidate>
+
+          <!-- USD/KES -->
+          <div class="field-group {% if errors and errors.usd_kes %}field-group--error{% endif %}">
+            <label class="field-label" for="usd_kes">
+              USD / KES Exchange Rate
+              <span class="field-hint">Typical range: 100 – 165</span>
+            </label>
+            <div class="input-wrap">
+              <span class="input-prefix">KES</span>
+              <input
+                type="number"
+                id="usd_kes"
+                name="usd_kes"
+                class="field-input"
+                placeholder="e.g. 130.50"
+                step="0.01"
+                min="80"
+                max="200"
+                value="{{ form_data.usd_kes if form_data else '' }}"
+                required
+              >
+            </div>
+            {% if errors and errors.usd_kes %}
+              <p class="field-error">{{ errors.usd_kes }}</p>
+            {% endif %}
+          </div>
+
+          <!-- Rainfall -->
+          <div class="field-group {% if errors and errors.rainfall %}field-group--error{% endif %}">
+            <label class="field-label" for="rainfall">
+              Rainfall Level
+              <span class="field-hint">Current season conditions</span>
+            </label>
+            <div class="select-wrap">
+              <select id="rainfall" name="rainfall" class="field-select" required>
+                <option value="" disabled {% if not form_data or not form_data.rainfall %}selected{% endif %}>Select rainfall level…</option>
+                {% for opt in rainfall_options %}
+                  <option value="{{ opt }}" {% if form_data and form_data.rainfall == opt %}selected{% endif %}>
+                    {% if opt == 'Low' %}🌤 Low — Dry conditions{% endif %}
+                    {% if opt == 'Medium' %}🌦 Medium — Seasonal rain{% endif %}
+                    {% if opt == 'High' %}🌧 High — Heavy rainfall{% endif %}
+                  </option>
+                {% endfor %}
+              </select>
+              <span class="select-arrow">▾</span>
+            </div>
+            {% if errors and errors.rainfall %}
+              <p class="field-error">{{ errors.rainfall }}</p>
+            {% endif %}
+          </div>
+
+          <!-- Month -->
+          <div class="field-group {% if errors and errors.month %}field-group--error{% endif %}">
+            <label class="field-label" for="month">
+              Prediction Month
+              <span class="field-hint">Month to forecast for</span>
+            </label>
+            <div class="select-wrap">
+              <select id="month" name="month" class="field-select" required>
+                <option value="" disabled {% if not form_data or not form_data.month %}selected{% endif %}>Select month…</option>
+                {% for m in months %}
+                  <option value="{{ m }}" {% if form_data and form_data.month == m %}selected{% endif %}>{{ m }}</option>
+                {% endfor %}
+              </select>
+              <span class="select-arrow">▾</span>
+            </div>
+            {% if errors and errors.month %}
+              <p class="field-error">{{ errors.month }}</p>
+            {% endif %}
+          </div>
+
+          <button type="submit" class="submit-btn" id="submit-btn">
+            <span class="btn-text">Run Prediction</span>
+            <span class="btn-icon">→</span>
+          </button>
+
+          <p class="loading-msg" id="loading-msg">
+            <span class="spinner"></span> Analysing market conditions…
+          </p>
+
+        </form>
+      </aside>
+
+      <!-- ── RIGHT: RESULTS ── -->
+      <section class="results-panel">
+
+        {% if result %}
+        <!-- Price card -->
+        <div class="card result-card result-card--price">
+          <div class="result-label">Predicted Auction Price</div>
+          <div class="result-price">
+            <span class="price-currency">USD</span>
+            <span class="price-value">{{ result.predicted_price }}</span>
+            <span class="price-unit">/ kg</span>
+          </div>
+          {% if graph %}
+          <div class="card">
+            <div class="result-label">📈 Price Trend</div>
+            <img src="data:image/png;base64,{{ graph }}" style="width:100%; border-radius:10px;">
+          </div>
+{% endif %}
+          <div class="result-meta">
+            <span>📅 {{ result.month }}</span>
+            <span>💱 KES {{ result.usd_kes }}</span>
+            <span>🌧 {{ result.rainfall }}</span>
+          </div>
+        </div>
+
+        <!-- Signal + Risk row -->
+        <div class="card-row">
+          <div class="card result-card result-card--signal signal--{{ result.signal | lower }}">
+            <div class="result-label">Market Signal</div>
+            <div class="signal-badge">
+              {% if result.signal == 'Bullish' %}📈{% elif result.signal == 'Bearish' %}📉{% else %}➡️{% endif %}
+              {{ result.signal }}
+            </div>
+            <div class="signal-desc">
+              {% if result.signal == 'Bullish' %}Prices trending above baseline{% elif result.signal == 'Bearish' %}Prices trending below baseline{% else %}Prices near historical average{% endif %}
+            </div>
+          </div>
+
+          <div class="card result-card result-card--risk risk--{{ result.risk | lower }}">
+            <div class="result-label">Risk Level</div>
+            <div class="risk-badge">
+              {% if result.risk == 'High' %}🔴{% elif result.risk == 'Medium' %}🟡{% else %}🟢{% endif %}
+              {{ result.risk }}
+            </div>
+            <div class="risk-meter">
+              <div class="risk-fill risk-fill--{{ result.risk | lower }}"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Insight card -->
+        <div class="card result-card result-card--insight">
+          <div class="result-label">💡 Market Insight</div>
+          <p class="insight-text">{{ result.insight }}</p>
+        </div>
+
+        {% else %}
+        <!-- Empty state -->
+        <div class="empty-state">
+          <div class="empty-icon">🍵</div>
+          <h3 class="empty-title">No prediction yet</h3>
+          <p class="empty-desc">Fill in the market conditions on the left and click <strong>Run Prediction</strong> to see your AI-generated forecast.</p>
+          <div class="empty-steps">
+            <div class="step"><span class="step-num">1</span> Enter USD/KES rate</div>
+            <div class="step"><span class="step-num">2</span> Choose rainfall level</div>
+            <div class="step"><span class="step-num">3</span> Select forecast month</div>
+          </div>
+        </div>
+        {% endif %}
+
+      </section>
+    </div><!-- /dashboard-grid -->
+
+  </main>
+
+  <footer class="site-footer">
+    <p>Kenyan Tea Market Intelligence · Powered by ML · Data sourced from Mombasa Tea Auction</p>
+  </footer>
+
+  <script>
+    const form   = document.getElementById('predict-form');
+    const btn    = document.getElementById('submit-btn');
+    const loader = document.getElementById('loading-msg');
+
+    form.addEventListener('submit', function (e) {
+      // Client-side validation
+      const usdKes = parseFloat(document.getElementById('usd_kes').value);
+      const rainfall = document.getElementById('rainfall').value;
+      const month   = document.getElementById('month').value;
+
+      if (!usdKes || isNaN(usdKes) || usdKes < 80 || usdKes > 200) {
+        e.preventDefault();
+        document.getElementById('usd_kes').focus();
+        return;
+      }
+      if (!rainfall) {
+        e.preventDefault();
+        document.getElementById('rainfall').focus();
+        return;
+      }
+      if (!month) {
+        e.preventDefault();
+        document.getElementById('month').focus();
+        return;
+      }
+
+      // Show loading state
+      btn.disabled = true;
+      btn.classList.add('btn--loading');
+      loader.classList.add('loading-msg--visible');
+    });
+
+    // Animate result cards on load
+    document.querySelectorAll('.result-card').forEach((card, i) => {
+      card.style.animationDelay = `${i * 0.1}s`;
+      card.classList.add('card--animate');
+    });
+  </script>
+</body>
+</html>
